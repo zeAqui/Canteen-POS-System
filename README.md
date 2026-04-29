@@ -18,8 +18,11 @@ Double-click the shortcut to open the app. No Node.js, no browser, no terminal n
 
 ## Data files
 
-After installation, the Excel log and employee CSV are stored next to the installed .exe: 
+After installation, the Excel log and employee CSV are stored next to the installed .exe:
+
   C:\Users\ "Your Username" \Documents\canteen_log.xlsx   <- your log
+
+  
   C:\Users\ "Your Username" \Documents\employee.csv        <- your roster
 
 To update the employee roster, edit employee.csv in that folder.
