@@ -1,0 +1,63 @@
+{
+  "name": "canteen-pos-sytem",
+  "version": "1.0.1",
+  "description": "",
+  "author": "Jarod Kraven R. Manikan, Angelo Vien F. Villegas",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64"
+  },
+  "dependencies": {
+    "csv-parse": "^5.5.3",
+    "express": "^4.18.2",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.canteen-pos-system",
+    "productName": "Canteen POS System",
+    "icon": "assets/icon.ico",
+    "asar": false,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "signAndEditExecutable": false
+    },
+
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Canteen POS System",
+      "installerIcon": "assets/installer_icon.ico"
+    },
+
+    "directories": {
+      "output": "dist"
+    },
+
+    "files": [
+      "main.js",
+      "server.js",
+      "public/**/*",
+      "node_modules/**/*",
+      "assets/**/*"
+    ],
+
+    "extraResources": [
+      {
+        "from": "employee.csv",
+        "to": "employee.csv"
+      }
+    ]
+  }
+}

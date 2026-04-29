@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Canteen POS System</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f5f5f0;
+      --surface: #ffffff;
+      --border: #e0ddd6;
+      --text: #1a1a1a;
+      --muted: #6b6b6b;
+      --accent: #1a6ef5;
+      --accent-bg: #edf2ff;
+      --success: #0f7a45;
+      --success-bg: #e8f7ef;
+      --danger: #c0392b;
+      --danger-bg: #fdecea;
+      --warning: #b45309;
+      --warning-bg: #fff8e1;
+      --mono: 'Courier New', monospace;
+    }
+
+    body {
+      background: var(--bg);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* [4] Top bar: clock + exit always visible */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 38px;
+      background: #1a1a2e;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      z-index: 500;
+      font-size: 12px;
+    }
+    .topbar-clock {
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      opacity: 0.92;
+    }
+    /* [5] Exit button */
+    .exit-btn {
+      height: 26px;
+      padding: 0 14px;
+      background: var(--danger);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      transition: opacity 0.15s;
+    }
+    .exit-btn:hover { opacity: 0.85; }
+
+    /* Push page content below topbar */
+    .app {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 58px 1rem 2rem; /* 58 = topbar height + gap */
+    }
+
+    .header { display: flex; align-items: center; gap: 14px; margin-bottom: 2rem; }
+    .header-icon { width: 64px; height: 64px; border-radius: 10px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid var(--border); flex-shrink: 0; }
+    .header-icon img { width: 100%; height: 100%; object-fit: contain; }
+    .header-text h1 { font-size: 20px; font-weight: 600; }
+    .header-text p { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .save-indicator { margin-left: auto; font-size: 12px; padding: 4px 10px; border-radius: 99px; font-weight: 500; transition: all 0.3s; white-space: nowrap; }
+    .save-indicator.saved  { background: var(--success-bg); color: var(--success); }
+    .save-indicator.saving { background: var(--warning-bg); color: var(--warning); }
+    .save-indicator.error  { background: var(--danger-bg);  color: var(--danger);  }
+
+    .scan-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; margin-bottom: 1rem; }
+    .scan-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+    .scan-row { display: flex; gap: 8px; }
+    .scan-input { flex: 1; height: 48px; font-size: 17px; padding: 0 14px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--bg); color: var(--text); outline: none; font-family: var(--mono); transition: border-color 0.2s; }
+    .scan-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,110,245,0.1); }
+    .scan-btn { height: 48px; padding: 0 22px; background: var(--accent); color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+    .scan-btn:hover { opacity: 0.88; }
+    .feedback { margin-top: 10px; font-size: 13px; border-radius: 8px; padding: 0; max-height: 0; overflow: hidden; transition: all 0.25s; }
+    .feedback.show { padding: 8px 12px; max-height: 60px; }
+    .feedback.success { background: var(--success-bg); color: var(--success); }
+    .feedback.error   { background: var(--danger-bg);  color: var(--danger);  }
+    .feedback.warning { background: var(--warning-bg); color: var(--warning); }
+
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1rem; }
+    .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; }
+    .stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 6px; }
+    .stat-value { font-size: 26px; font-weight: 700; color: var(--text); }
+    .stat-value.sm { font-size: 15px; padding-top: 5px; font-weight: 600; }
+
+    .log-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: visible; }
+    .log-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); gap: 8px; flex-wrap: wrap; }
+    .log-title { font-size: 14px; font-weight: 600; flex: 1; min-width: 0; }
+    .log-header-btns { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+    /* [2] Filter button */
+    .filter-btn {
+      height: 34px; padding: 0 12px;
+      font-size: 12px; font-weight: 600;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface); color: var(--muted);
+      cursor: pointer; display: flex; align-items: center; gap: 5px;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .filter-btn:hover { background: var(--bg); color: var(--text); }
+    .filter-btn.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+    .filter-btn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* [2] Filter bar below header */
+    .filter-bar { display: none; align-items: center; gap: 10px; padding: 10px 1.25rem; border-bottom: 1px solid var(--border); background: var(--accent-bg); flex-wrap: wrap; }
+    .filter-bar.open { display: flex; }
+    .filter-bar label { font-size: 12px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+    .filter-bar input[type="date"] { height: 32px; padding: 0 10px; border: 1px solid #b3ccfa; border-radius: 7px; font-size: 13px; color: var(--text); background: var(--surface); outline: none; }
+    .filter-bar input[type="date"]:focus { border-color: var(--accent); }
+    .filter-bar .filter-clear { height: 30px; padding: 0 12px; border: none; border-radius: 7px; background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+    .filter-bar .filter-clear:hover { opacity: 0.85; }
+
+    /* [1] Download dropdown */
+    .dl-wrapper { position: relative; display: inline-block; }
+    .dl-btn { height: 34px; padding: 0 14px; font-size: 12px; font-weight: 600; border-radius: 8px; border: 1px solid var(--success); background: var(--success-bg); color: var(--success); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: opacity 0.15s; white-space: nowrap; }
+    .dl-btn:hover { opacity: 0.8; }
+    .dl-btn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .dl-btn .dl-caret { font-style: normal; font-size: 9px; margin-left: 1px; opacity: 0.7; }
+
+    /* [1] scrollable menu, no cutoff, opens upward if near bottom */
+    .dl-menu {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 5px); /* open upward to prevent cutoff */
+      right: 0;
+      min-width: 250px;
+      max-height: 340px;
+      overflow-y: auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.13);
+      z-index: 400;
+      animation: dlFadeIn 0.13s ease;
+    }
+    .dl-menu.open { display: block; }
+    @keyframes dlFadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+
+    .dl-menu-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); padding: 10px 14px 6px; position: sticky; top: 0; background: var(--surface); border-bottom: 1px solid var(--border); z-index: 1; }
+    .dl-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 14px; background: none; border: none; text-align: left; cursor: pointer; font-size: 13px; color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; transition: background 0.1s; }
+    .dl-menu-item:hover { background: var(--bg); }
+    .dl-menu-item .dmi-icon { font-size: 15px; width: 26px; text-align: center; flex-shrink: 0; }
+    .dl-menu-item .dmi-text strong { display: block; font-size: 13px; font-weight: 600; }
+    .dl-menu-item .dmi-text small  { font-size: 11px; color: var(--muted); }
+
+    .dl-sub-panel { display: none; padding: 10px 14px 12px; border-top: 1px solid var(--border); background: #fafaf8; }
+    .dl-sub-panel.open { display: block; }
+    .dl-sub-panel label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 5px; }
+    .dl-sub-panel input[type="date"] { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; color: var(--text); background: var(--surface); outline: none; margin-bottom: 8px; }
+    .dl-sub-panel input[type="date"]:focus { border-color: var(--accent); }
+    .dl-range-row { display: flex; gap: 8px; }
+    .dl-range-field { flex: 1; }
+    .dl-range-field label { display: block; margin-bottom: 4px; }
+    .dl-range-field input[type="date"] { margin-bottom: 0; }
+    .dl-sub-btn { width: 100%; margin-top: 8px; height: 32px; background: var(--accent); color: #fff; border: none; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .dl-sub-btn:hover { opacity: 0.88; }
+
+    /* Range confirm modal */
+    .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 600; align-items: center; justify-content: center; }
+    .modal-backdrop.open { display: flex; }
+    .modal { background: var(--surface); border-radius: 14px; padding: 1.5rem; max-width: 420px; width: calc(100% - 2rem); box-shadow: 0 12px 40px rgba(0,0,0,0.18); }
+    .modal-title { font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+    .modal-body { font-size: 13px; color: var(--text); line-height: 1.6; }
+    .modal-missing { margin: 8px 0; padding: 8px 10px; background: var(--warning-bg); border: 1px solid #f5dc8a; border-radius: 7px; font-size: 12px; color: var(--warning); line-height: 1.7; }
+    .modal-suggest { margin-top: 8px; font-size: 12px; color: var(--muted); }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+    .modal-btn { height: 34px; padding: 0 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .modal-btn.cancel  { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+    .modal-btn.proceed { background: var(--accent); color: #fff; }
+
+    /* Password modal */
+    .pw-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 700; align-items: center; justify-content: center; }
+    .pw-backdrop.open { display: flex; }
+    .pw-modal { background: var(--surface); border-radius: 14px; padding: 1.5rem; width: 320px; box-shadow: 0 12px 40px rgba(0,0,0,0.22); }
+    .pw-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .pw-sub   { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+    .pw-input { width: 100%; height: 40px; padding: 0 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 14px; color: var(--text); background: var(--bg); outline: none; font-family: var(--mono); letter-spacing: 0.05em; transition: border-color 0.15s; }
+    .pw-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,110,245,0.1); }
+    .pw-error { font-size: 12px; color: var(--danger); margin-top: 6px; min-height: 16px; }
+    .pw-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+    .pw-btn { height: 34px; padding: 0 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .pw-btn.cancel  { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+    .pw-btn.confirm { background: var(--accent); color: #fff; }
+
+    #dlOverlay { display: none; position: fixed; inset: 0; z-index: 350; }
+    #dlOverlay.open { display: block; }
+
+    .log-wrap { overflow-x: auto; max-height: 380px; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { position: sticky; top: 0; background: #f9f9f6; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 9px 16px; text-align: left; border-bottom: 1px solid var(--border); z-index: 1; }
+    td { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+    .empty-state { padding: 3rem 1.25rem; text-align: center; color: var(--muted); font-size: 13px; }
+    .badge-new { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 99px; background: var(--success-bg); color: var(--success); font-weight: 600; margin-left: 6px; vertical-align: middle; }
+    code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding: 2px 6px; border-radius: 4px; }
+    .status-bar { font-size: 12px; color: var(--muted); padding: 0.6rem 1.25rem; border-top: 1px solid var(--border); background: #fafaf8; border-radius: 0 0 14px 14px; }
+
+    @keyframes flashRow { from { background: #e8f7ef; } to { background: transparent; } }
+    .new-row td { animation: flashRow 1.5s ease forwards; }
+
+    /* [6] Block text selection to reduce accidental focus loss */
+    .app { user-select: none; }
+    .scan-input, .pw-input, input[type="date"] { user-select: text; }
+
+    /* Employee editor modal */
+    .emp-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 800; align-items: center; justify-content: center; }
+    .emp-backdrop.open { display: flex; }
+    .emp-modal { background: var(--surface); border-radius: 14px; padding: 1.5rem; width: 560px; max-width: calc(100vw - 2rem); max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 12px 40px rgba(0,0,0,0.22); }
+    .emp-modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .emp-modal-title { font-size: 15px; font-weight: 700; }
+    .emp-close-btn { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--muted); padding: 2px 6px; border-radius: 6px; }
+    .emp-close-btn:hover { background: var(--bg); color: var(--text); }
+    .emp-add-row { display: flex; gap: 8px; margin-bottom: 1rem; flex-shrink: 0; }
+    .emp-add-row input { flex: 1; height: 36px; padding: 0 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text); background: var(--bg); outline: none; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .emp-add-row input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,110,245,0.1); }
+    .emp-save-btn { height: 36px; padding: 0 16px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .emp-save-btn:hover { opacity: 0.88; }
+    .emp-table-wrap { overflow-y: auto; flex: 1; border: 1px solid var(--border); border-radius: 10px; }
+    .emp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .emp-table th { position: sticky; top: 0; background: #f9f9f6; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 8px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+    .emp-table td { padding: 9px 14px; border-bottom: 1px solid var(--border); }
+    .emp-table tr:last-child td { border-bottom: none; }
+    .emp-table tr:hover td { background: #fafafa; }
+    .emp-del-btn { background: none; border: none; cursor: pointer; color: var(--danger); font-size: 15px; padding: 2px 6px; border-radius: 5px; }
+    .emp-del-btn:hover { background: var(--danger-bg); }
+    .emp-feedback { font-size: 12px; margin-bottom: 8px; padding: 6px 10px; border-radius: 7px; display: none; flex-shrink: 0; }
+    .emp-feedback.show { display: block; }
+    .emp-feedback.success { background: var(--success-bg); color: var(--success); }
+    .emp-feedback.error   { background: var(--danger-bg);  color: var(--danger); }
+    .emp-edit-input { width: 100%; height: 28px; padding: 0 8px; border: 1.5px solid var(--accent); border-radius: 6px; font-size: 13px; outline: none; font-family: 'Segoe UI', system-ui, sans-serif; }
+  </style>
+</head>
+<body>
+
+<!-- [4] Fixed topbar with live clock and [5] exit button -->
+<div class="topbar">
+  <div class="topbar-clock" id="topbarClock">--:-- -- · ---</div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button class="exit-btn" style="background:#2a5298;" onclick="openEmployeeEditor()" title="Edit employee roster">👥 Employees</button>
+    <button class="exit-btn" onclick="requestExit()">⏻ EXIT</button>
+  </div>
+</div>
+
+<div class="app">
+  <div class="header">
+    <div class="header-icon">
+      <img src="/logo.jpg" alt="Ivoclar" />
+    </div>
+    <div class="header-text">
+      <h1>Canteen POS System</h1>
+      <p>Scan employee barcode or Enter Employee ID to log entry</p>
+    </div>
+    <div class="save-indicator saved" id="saveIndicator">Saved to Excel</div>
+  </div>
+
+  <div class="scan-card">
+    <div class="scan-label">Employee ID / Barcode scan</div>
+    <div class="scan-row">
+      <input class="scan-input" id="scanInput" type="text" placeholder="Scan or type Employee ID..." autocomplete="off" autofocus />
+      <button class="scan-btn" onclick="processEntry()">Log entry</button>
+    </div>
+    <div class="feedback" id="feedback"></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Total entries</div>
+      <div class="stat-value" id="statTotal">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Today's headcount</div>
+      <div class="stat-value" id="statToday">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Last scanned</div>
+      <div class="stat-value sm" id="statLast">—</div>
+    </div>
+  </div>
+
+  <div class="log-card">
+    <div class="log-header">
+      <span class="log-title" id="logTitle">Today's Entries</span>
+      <div class="log-header-btns">
+
+        <!-- [2] Filter button -->
+        <button class="filter-btn" id="filterBtn" onclick="toggleFilterBar()" title="Filter by date">
+          <svg viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+          Filter
+        </button>
+
+        <!-- [1] Download Excel dropdown -->
+        <div class="dl-wrapper" id="dlWrapper">
+          <button class="dl-btn" id="dlBtn" onclick="toggleDlMenu(event)">
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download Excel
+            <em class="dl-caret">▼</em>
+          </button>
+
+          <div class="dl-menu" id="dlMenu">
+            <div class="dl-menu-label">Export Options</div>
+
+            <button class="dl-menu-item" onclick="downloadAll()">
+              <span class="dmi-icon">📦</span>
+              <span class="dmi-text">
+                <strong>All logs</strong>
+                <small>Download the complete dataset</small>
+              </span>
+            </button>
+
+            <button class="dl-menu-item" onclick="toggleSubPanel('dayPanel')">
+              <span class="dmi-icon">📅</span>
+              <span class="dmi-text">
+                <strong>Specific day</strong>
+                <small>Filter by a single date</small>
+              </span>
+            </button>
+
+            <button class="dl-menu-item" onclick="toggleSubPanel('rangePanel')">
+              <span class="dmi-icon">📆</span>
+              <span class="dmi-text">
+                <strong>Date range</strong>
+                <small>Filter between two dates</small>
+              </span>
+            </button>
+
+            <div class="dl-sub-panel" id="dayPanel">
+              <label for="dayDate">Select date</label>
+              <input type="date" id="dayDate" />
+              <button class="dl-sub-btn" onclick="downloadDay()">Download for this day</button>
+            </div>
+
+            <div class="dl-sub-panel" id="rangePanel">
+              <div class="dl-range-row">
+                <div class="dl-range-field">
+                  <label for="rangeFrom">From</label>
+                  <input type="date" id="rangeFrom" />
+                </div>
+                <div class="dl-range-field">
+                  <label for="rangeTo">To</label>
+                  <input type="date" id="rangeTo" />
+                </div>
+              </div>
+              <button class="dl-sub-btn" onclick="initiateRangeDownload()">Download range</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- [2] Filter bar -->
+    <div class="filter-bar" id="filterBar">
+      <label for="filterDateInput">📅 Select Date:</label>
+      <input type="date" id="filterDateInput" onchange="applyDateFilter()" />
+      <button class="filter-clear" onclick="clearFilter()">Clear</button>
+    </div>
+
+    <div class="log-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Employee ID</th>
+            <th>Full name</th>
+            <th>Time in</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody id="logBody">
+          <tr><td colspan="5"><div class="empty-state">Loading entries...</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="status-bar" id="statusBar">Connecting to server...</div>
+  </div>
+</div>
+
+<!-- Range confirm modal -->
+<div class="modal-backdrop" id="rangeModal">
+  <div class="modal">
+    <div class="modal-title">⚠ Some dates have no records</div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel"  onclick="closeRangeModal()">Cancel</button>
+      <button class="modal-btn proceed" onclick="confirmRangeDownload()">Proceed anyway</button>
+    </div>
+  </div>
+</div>
+
+<!-- Password modal -->
+<div class="pw-backdrop" id="pwBackdrop">
+  <div class="pw-modal">
+    <div class="pw-title">🔒 Authentication Required</div>
+    <div class="pw-sub" id="pwSub">Enter password to continue.</div>
+    <input class="pw-input" type="password" id="pwInput" placeholder="Password" autocomplete="off" />
+    <div class="pw-error" id="pwError"></div>
+    <div class="pw-actions">
+      <button class="pw-btn cancel"  id="pwCancel">Cancel</button>
+      <button class="pw-btn confirm" id="pwConfirm">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div id="dlOverlay" onclick="closeDlMenu()"></div>
+
+<!-- Employee Editor Modal -->
+<div class="emp-backdrop" id="empBackdrop">
+  <div class="emp-modal">
+    <div class="emp-modal-header">
+      <div class="emp-modal-title">👥 Employee Roster</div>
+      <button class="emp-close-btn" onclick="closeEmployeeEditor()">✕</button>
+    </div>
+    <div class="emp-add-row">
+      <input type="text" id="empIdInput"   placeholder="Employee ID"   autocomplete="off" />
+      <input type="text" id="empNameInput" placeholder="Full Name"     autocomplete="off" />
+      <button class="emp-save-btn" onclick="saveEmployee()">＋ Add / Update</button>
+    </div>
+    <div class="emp-feedback" id="empFeedback"></div>
+    <div class="emp-table-wrap">
+      <table class="emp-table">
+        <thead><tr><th>Employee ID</th><th>Full Name</th><th style="width:44px;"></th></tr></thead>
+        <tbody id="empTableBody"><tr><td colspan="3" style="text-align:center;color:#999;padding:2rem;">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let entries          = [];
+let newestKey        = null;
+let activeFilterDate = null;   // ISO "YYYY-MM-DD" or null (null = today)
+let pendingRangeFrom = null;
+let pendingRangeTo   = null;
+
+// ── [4] Live clock (topbar, always visible in fullscreen) ─────────────────
+let clientOffsetMs = 0;
+
+(function tickClock() {
+  function update() {
+    const now  = new Date(Date.now() + clientOffsetMs);
+    const time = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    const date = now.toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: '2-digit', year: 'numeric' });
+    document.getElementById('topbarClock').textContent = time + '  ·  ' + date;
+  }
+  update();
+  setInterval(update, 1000);
+})();
+
+// ── Employee Editor ────────────────────────────────────────────────────────
+let empEditorUnlocked = false;
+
+async function openEmployeeEditor() {
+  if (!empEditorUnlocked) {
+    const pwd = await window.__pwPrompt('edit the employee roster');
+    if (!pwd) return;
+    const verRes = await fetch('/api/verify-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pwd })
+    });
+    const verData = await verRes.json();
+    if (!verData.ok) { showFeedback('✗ Wrong password.', 'error'); return; }
+    empEditorUnlocked = true;
+  }
+  document.getElementById('empBackdrop').classList.add('open');
+  await refreshEmpTable();
+}
+
+function closeEmployeeEditor() {
+  document.getElementById('empBackdrop').classList.remove('open');
+  empEditorUnlocked = false;
+  document.getElementById('empIdInput').value   = '';
+  document.getElementById('empNameInput').value = '';
+  showEmpFeedback('', '');
+}
+
+async function refreshEmpTable() {
+  const tbody = document.getElementById('empTableBody');
+  tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#999;padding:1.5rem;">Loading...</td></tr>';
+  try {
+    const res  = await fetch('/api/employees');
+    const data = await res.json();
+    if (!data.employees || data.employees.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#999;padding:1.5rem;">No employees found.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.employees.map(e =>
+      '<tr>' +
+        '<td><code>' + e.id + '</code></td>' +
+        '<td id="name-cell-' + e.id + '">' + e.name + '</td>' +
+        '<td style="text-align:center;">' +
+          '<button class="emp-del-btn" onclick="deleteEmployee(\'' + e.id.replace(/'/g, "\\'") + '\')" title="Remove">🗑</button>' +
+        '</td>' +
+      '</tr>'
+    ).join('');
+  } catch(err) {
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#c00;padding:1.5rem;">Failed to load roster.</td></tr>';
+  }
+}
+
+async function saveEmployee() {
+  const id   = document.getElementById('empIdInput').value.trim().toUpperCase();
+  const name = document.getElementById('empNameInput').value.trim();
+  if (!id || !name) { showEmpFeedback('Both Employee ID and Full Name are required.', 'error'); return; }
+  try {
+    const res  = await fetch('/api/employees', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, name })
+    });
+    const data = await res.json();
+    if (!res.ok) { showEmpFeedback(data.error || 'Save failed.', 'error'); return; }
+    document.getElementById('empIdInput').value   = '';
+    document.getElementById('empNameInput').value = '';
+    showEmpFeedback('✓ Employee saved: ' + id + ' — ' + name, 'success');
+    await refreshEmpTable();
+  } catch(err) {
+    showEmpFeedback('Server error. Try again.', 'error');
+  }
+}
+
+async function deleteEmployee(id) {
+  if (!confirm('Remove employee ' + id + ' from the roster?')) return;
+  try {
+    const res  = await fetch('/api/employees/' + encodeURIComponent(id), { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) { showEmpFeedback(data.error || 'Delete failed.', 'error'); return; }
+    showEmpFeedback('✓ Removed: ' + id, 'success');
+    await refreshEmpTable();
+  } catch(err) {
+    showEmpFeedback('Server error. Try again.', 'error');
+  }
+}
+
+function showEmpFeedback(msg, type) {
+  const el = document.getElementById('empFeedback');
+  if (!msg) { el.className = 'emp-feedback'; el.textContent = ''; return; }
+  el.textContent = msg;
+  el.className   = 'emp-feedback show ' + type;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.className = 'emp-feedback'; }, 4000);
+}
+
+// Allow Enter key in employee add fields
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('empNameInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') saveEmployee();
+  });
+  document.getElementById('empIdInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') document.getElementById('empNameInput').focus();
+  });
+});
+
+// ── [6] Block keyboard shortcuts that could escape fullscreen ─────────────
+document.addEventListener('keydown', function(e) {
+  // Allow Ctrl+Alt+Delete (handled by OS, cannot be intercepted anyway)
+  // Allow normal typing keys
+  const key = e.key;
+  const ctrl = e.ctrlKey, alt = e.altKey, meta = e.metaKey, shift = e.shiftKey;
+
+  // Windows key (Meta)
+  if (meta && !ctrl && !alt) { e.preventDefault(); return; }
+
+  // Alt+Tab, Alt+F4, Alt+Escape, Alt+Space
+  if (alt && (key === 'Tab' || key === 'F4' || key === 'Escape' || key === ' ')) {
+    e.preventDefault(); return;
+  }
+
+  // Ctrl+Escape (Start menu), Ctrl+Alt+Tab
+  if (ctrl && key === 'Escape') { e.preventDefault(); return; }
+  if (ctrl && alt && key === 'Tab') { e.preventDefault(); return; }
+
+  // F11 (fullscreen toggle) — intercept; we manage fullscreen ourselves
+  if (key === 'F11') { e.preventDefault(); return; }
+
+  // Alt+Enter (another fullscreen shortcut in some apps)
+  if (alt && key === 'Enter') { e.preventDefault(); return; }
+}, true);
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function todayLabel() {
+  return new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: '2-digit' });
+}
+function isoToDisplayDate(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 12)).toLocaleDateString('en-PH', {
+    year: 'numeric', month: 'short', day: '2-digit', timeZone: 'UTC'
+  });
+}
+
+// Active display date label (today if no filter, else filtered date)
+function activeDateLabel() {
+  return activeFilterDate ? isoToDisplayDate(activeFilterDate) : todayLabel();
+}
+
+// ── Data ───────────────────────────────────────────────────────────────────
+async function loadEntries() {
+  try {
+    const res  = await fetch('/api/entries');
+    const data = await res.json();
+    entries = data.entries;
+    renderTable();
+    updateStats();
+    setStatus(entries.length + ' total entries in Excel. Showing ' + (activeFilterDate ? isoToDisplayDate(activeFilterDate) : 'today') + '.');
+    setSaveState('saved');
+  } catch (e) {
+    setStatus('Cannot connect to server. Make sure server.js is running.');
+    setSaveState('error');
+  }
+}
+
+// ── Scan ───────────────────────────────────────────────────────────────────
+async function processEntry() {
+  const raw = document.getElementById('scanInput').value.trim();
+  document.getElementById('scanInput').value = '';
+  document.getElementById('scanInput').focus();
+  if (!raw) return;
+
+  setSaveState('saving');
+  try {
+    const res  = await fetch('/api/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId: raw })
+    });
+    const data = await res.json();
+    if (res.status === 409) { showFeedback('⚠ ' + data.error, 'warning'); setSaveState('saved'); return; }
+    if (!res.ok)            { showFeedback(data.error || 'Unknown error', 'error'); setSaveState('error'); return; }
+
+    newestKey = data.entry.id + data.entry.time;
+    showFeedback('✓ Logged: ' + data.entry.name + ' at ' + data.entry.time, 'success');
+    setSaveState('saved');
+    setStatus('Last saved: ' + new Date().toLocaleTimeString());
+    await loadEntries();
+  } catch (e) {
+    showFeedback('Server error — is the app running?', 'error');
+    setSaveState('error');
+  }
+}
+
+// ── [2] Filter bar ─────────────────────────────────────────────────────────
+function toggleFilterBar() {
+  const bar = document.getElementById('filterBar');
+  const btn = document.getElementById('filterBtn');
+  if (bar.classList.contains('open')) {
+    bar.classList.remove('open');
+    btn.classList.remove('active');
+  } else {
+    // Default date picker to currently active filter or today
+    const input = document.getElementById('filterDateInput');
+    if (!input.value) {
+      input.value = activeFilterDate || new Date().toISOString().slice(0, 10);
+    }
+    bar.classList.add('open');
+    btn.classList.add('active');
+    input.focus();
+  }
+}
+
+function applyDateFilter() {
+  const val = document.getElementById('filterDateInput').value;
+  activeFilterDate = val || null;
+  renderTable();
+  updateStats();
+  updateLogTitle();
+}
+
+// [2] Clear resets to today (current day default)
+function clearFilter() {
+  activeFilterDate = null;
+  document.getElementById('filterDateInput').value = '';
+  document.getElementById('filterBar').classList.remove('open');
+  document.getElementById('filterBtn').classList.remove('active');
+  renderTable();
+  updateStats();
+  updateLogTitle();
+}
+
+function updateLogTitle() {
+  document.getElementById('logTitle').textContent =
+    activeFilterDate ? 'Entries for ' + isoToDisplayDate(activeFilterDate) : "Today's entries";
+}
+
+// ── [2][3] Table — today by default, filtered date when active ────────────
+function renderTable() {
+  const body  = document.getElementById('logBody');
+  const label = activeDateLabel();
+  const display = entries.filter(e => e.date === label);
+
+  if (display.length === 0) {
+    const msg = activeFilterDate
+      ? 'No entries found for ' + label + '.'
+      : 'No entries for today yet. Scan a barcode to begin.';
+    body.innerHTML = '<tr><td colspan="5"><div class="empty-state">' + msg + '</div></td></tr>';
+    return;
+  }
+
+  body.innerHTML = display.map((e, i) => {
+    const isNew = (e.id + e.time) === newestKey && i === 0;
+    return '<tr class="' + (isNew ? 'new-row' : '') + '">' +
+      '<td style="color:#999;">' + (display.length - i) + '</td>' +
+      '<td><code>' + e.id + '</code></td>' +
+      '<td style="font-weight:600;">' + e.name + (isNew ? '<span class="badge-new">new</span>' : '') + '</td>' +
+      '<td>' + e.time + '</td>' +
+      '<td style="color:#888;">' + e.date + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+// ── [3] Stats — scoped to active date (today or filtered) ─────────────────
+function updateStats() {
+  const today        = todayLabel();
+  const label        = activeDateLabel();
+  const scopedEntries = entries.filter(e => e.date === label);
+  const todayCount   = entries.filter(e => e.date === today).length;
+
+  // [3] Total = count for active date
+  document.getElementById('statTotal').textContent = scopedEntries.length;
+  document.getElementById('statToday').textContent = todayCount;
+  // [3] Last scanned = full name of last entry on active date
+  document.getElementById('statLast').textContent  = scopedEntries.length > 0 ? scopedEntries[0].name : '—';
+}
+
+// ── UI helpers ─────────────────────────────────────────────────────────────
+function showFeedback(msg, type) {
+  const f = document.getElementById('feedback');
+  f.textContent = msg; f.className = 'feedback show ' + type;
+  clearTimeout(f._t); f._t = setTimeout(() => { f.className = 'feedback'; }, 4500);
+}
+function setSaveState(state) {
+  const el = document.getElementById('saveIndicator');
+  const map = { saved:{cls:'saved',text:'✓ Saved to Excel'}, saving:{cls:'saving',text:'⏳ Saving...'}, error:{cls:'error',text:'✗ Save error'} };
+  const s = map[state]||map.saved; el.className='save-indicator '+s.cls; el.textContent=s.text;
+}
+function setStatus(msg) { document.getElementById('statusBar').textContent = msg; }
+
+document.getElementById('scanInput').addEventListener('keydown', e => { if (e.key === 'Enter') processEntry(); });
+
+// ── Download dropdown ──────────────────────────────────────────────────────
+function toggleDlMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('dlMenu'), ov = document.getElementById('dlOverlay');
+  if (menu.classList.contains('open')) { closeDlMenu(); return; }
+  menu.classList.add('open'); ov.classList.add('open');
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('dayDate').value   = today;
+  document.getElementById('rangeFrom').value = today;
+  document.getElementById('rangeTo').value   = today;
+}
+function closeDlMenu() {
+  document.getElementById('dlMenu').classList.remove('open');
+  document.getElementById('dlOverlay').classList.remove('open');
+  document.getElementById('dayPanel').classList.remove('open');
+  document.getElementById('rangePanel').classList.remove('open');
+}
+function toggleSubPanel(id) {
+  const day=document.getElementById('dayPanel'), rng=document.getElementById('rangePanel');
+  const t=document.getElementById(id), was=t.classList.contains('open');
+  day.classList.remove('open'); rng.classList.remove('open');
+  if(!was) t.classList.add('open');
+}
+
+// ── Downloads ──────────────────────────────────────────────────────────────
+function downloadAll() {
+  if (!entries.length) { showFeedback('⚠ No logs available.','warning'); closeDlMenu(); return; }
+  triggerDownload('/api/download/all'); closeDlMenu();
+}
+function downloadDay() {
+  const date=document.getElementById('dayDate').value;
+  if(!date){showFeedback('Please select a date.','warning');return;}
+  fetch('/api/download/day?date='+encodeURIComponent(date))
+    .then(r=>r.ok?r.blob().then(b=>{blobDownload(b,'canteen_log_'+date+'.xlsx');closeDlMenu();}):r.json().then(d=>showFeedback('⚠ '+d.error,'warning')))
+    .catch(()=>showFeedback('Download failed.','error'));
+}
+function initiateRangeDownload() {
+  const from=document.getElementById('rangeFrom').value, to=document.getElementById('rangeTo').value;
+  if(!from||!to){showFeedback('Please select both dates.','warning');return;}
+  if(from>to){showFeedback('⚠ "From" must not be after "To".','warning');return;}
+  fetch('/api/download/range-check?from='+encodeURIComponent(from)+'&to='+encodeURIComponent(to))
+    .then(r=>r.json())
+    .then(data=>{
+      if(data.missingDates&&data.missingDates.length>0){pendingRangeFrom=from;pendingRangeTo=to;showRangeModal(data.missingDates,data.nearestAvailable);}
+      else doRangeDownload(from,to);
+    })
+    .catch(()=>showFeedback('Could not validate range.','error'));
+}
+function showRangeModal(missing,nearest){
+  const nt=nearest&&nearest.length>0?'Nearest date(s) with data: <strong>'+nearest.join(', ')+'</strong>':'No nearby dates found.';
+  document.getElementById('modalBody').innerHTML=
+    'These dates have <strong>no records</strong>:<div class="modal-missing">'+missing.join('<br>')+'</div>'+
+    '<div class="modal-suggest">'+nt+'</div>'+
+    '<div class="modal-suggest" style="margin-top:6px;">Proceed to export available data only, or cancel to adjust your range.</div>';
+  document.getElementById('rangeModal').classList.add('open');
+}
+function closeRangeModal(){document.getElementById('rangeModal').classList.remove('open');pendingRangeFrom=null;pendingRangeTo=null;}
+function confirmRangeDownload(){const f=pendingRangeFrom,t=pendingRangeTo;closeRangeModal();if(f&&t)doRangeDownload(f,t);}
+function doRangeDownload(from,to){
+  fetch('/api/download/range?from='+encodeURIComponent(from)+'&to='+encodeURIComponent(to))
+    .then(r=>r.ok?r.blob().then(b=>{blobDownload(b,'canteen_log_'+from+'_to_'+to+'.xlsx');closeDlMenu();}):r.json().then(d=>showFeedback('⚠ '+d.error,'warning')))
+    .catch(()=>showFeedback('Download failed.','error'));
+}
+function triggerDownload(url){const a=document.createElement('a');a.href=url;a.style.display='none';document.body.appendChild(a);a.click();document.body.removeChild(a);}
+function blobDownload(blob,filename){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}
+
+// ── [5] Exit button ────────────────────────────────────────────────────────
+function requestExit() {
+  // If running inside Electron, signal main process via IPC
+  if (window.require) {
+    try {
+      const { ipcRenderer } = window.require('electron');
+      ipcRenderer.send('request-exit');
+      return;
+    } catch(e) {}
+  }
+  // Fallback (browser / dev): show password modal
+  window.__pwPrompt('exit the application').then(function(pwd) {
+    if (pwd === 'abc@123') window.close();
+  });
+}
+
+// ── Password modal — used by Electron main via executeJavaScript ──────────
+window.__pwPrompt = function(action) {
+  return new Promise(function(resolve) {
+    const backdrop = document.getElementById('pwBackdrop');
+    const input    = document.getElementById('pwInput');
+    const sub      = document.getElementById('pwSub');
+    const errEl    = document.getElementById('pwError');
+    const btnOk    = document.getElementById('pwConfirm');
+    const btnCx    = document.getElementById('pwCancel');
+
+    sub.textContent   = 'Enter password to ' + action + ':';
+    input.value       = '';
+    errEl.textContent = '';
+    backdrop.classList.add('open');
+    setTimeout(() => input.focus(), 60);
+
+    function submit() { resolve(input.value); backdrop.classList.remove('open'); cleanup(); }
+    function cancel()  { resolve('');           backdrop.classList.remove('open'); cleanup(); }
+    function onKey(e)  { if (e.key==='Enter') submit(); if (e.key==='Escape') cancel(); }
+    function cleanup() { btnOk.removeEventListener('click',submit); btnCx.removeEventListener('click',cancel); input.removeEventListener('keydown',onKey); }
+
+    btnOk.addEventListener('click', submit);
+    btnCx.addEventListener('click', cancel);
+    input.addEventListener('keydown', onKey);
+  });
+};
+
+// ── Init ───────────────────────────────────────────────────────────────────
+loadEntries();
+</script>
+<div style="text-align: center; font-size: 11px; color: #999; padding: 1.5rem 0 1rem;">© 2026 Interns: Manikan, Jarod Kraven R. &amp; Villegas Angelo Vien F.</div>
+</body>
+</html>
